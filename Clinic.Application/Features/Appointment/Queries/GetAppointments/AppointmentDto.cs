@@ -2,7 +2,7 @@ using Clinic.Domain.Enums;
 
 namespace Clinic.Application.Features.Appointment.Queries.GetAppointments;
 
-public class AppointmentDTO
+public class AppointmentDto
 {
     public int Id { get; set; }
     public DateTime StartTime { get; set; }

@@ -1,3 +1,4 @@
+using Clinic.Domain;
 using Clinic.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 

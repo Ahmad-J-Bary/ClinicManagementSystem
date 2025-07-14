@@ -1,4 +1,5 @@
 using Clinic.Application.Contracts.Persistence;
+using Clinic.Application.Exceptions;
 using MediatR;
 
 namespace Clinic.Application.Features.Appointment.Commands.DeleteAppointment;

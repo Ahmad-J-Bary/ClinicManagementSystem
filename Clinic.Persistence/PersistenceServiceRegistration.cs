@@ -38,9 +38,13 @@ namespace Clinic.Persistence
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<IDoctorAvailabilityRepository, DoctorAvailabilityRepository>();
+            services.AddScoped<IAdminRepository, AdminRepository>();
+            services.AddScoped<IPharmacistRepository, PharmacistRepository>();
+            services.AddScoped<IReceptionistRepository, ReceptionistRepository>();
 
             return services;
         }
     }
 }
+
 
