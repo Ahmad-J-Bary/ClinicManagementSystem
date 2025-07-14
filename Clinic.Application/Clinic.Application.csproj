@@ -18,5 +18,20 @@
     <ProjectReference Include="..\Clinic.Domain\Clinic.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Department\Commands\" />
+    <Folder Include="Features\Department\Queries\" />
+    <Folder Include="Features\DoctorAvailability\Commands\" />
+    <Folder Include="Features\DoctorAvailability\Queries\" />
+    <Folder Include="Features\MedicalRecord\Commands\" />
+    <Folder Include="Features\MedicalRecord\Queries\" />
+    <Folder Include="Features\Notification\Commands\" />
+    <Folder Include="Features\Notification\Queries\" />
+    <Folder Include="Features\Payment\Commands\" />
+    <Folder Include="Features\Payment\Queries\" />
+    <Folder Include="Features\Prescription\Commands\" />
+    <Folder Include="Features\Prescription\Queries\" />
+  </ItemGroup>
+
 </Project>
 

@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Clinic.Domain;
 
 namespace Clinic.Application.Contracts.Persistence
 {
@@ -6,7 +7,7 @@ namespace Clinic.Application.Contracts.Persistence
     /// Generic repository interface for common CRUD operations.
     /// </summary>
     /// <typeparam name="T">Entity type</typeparam>
-    public interface IGenericRepository<T> where T : class
+    public interface IGenericRepository<T> where T : BaseEntity
     {
         Task<IReadOnlyList<T>> GetAllAsync();
         Task<T?> GetByIdAsync(int id);
