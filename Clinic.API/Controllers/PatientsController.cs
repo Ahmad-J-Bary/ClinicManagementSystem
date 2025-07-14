@@ -1,205 +1,187 @@
-using Microsoft.AspNetCore.Mvc;
 using Clinic.Application.DTOs.Patient;
+using Clinic.Application.Features.Patient.Commands.CreatePatient;
+using Clinic.Application.Features.Patient.Commands.UpdatePatient;
+using Clinic.Application.Features.Patient.Queries.GetPatientDetail;
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Clinic.API.Controllers
 {
     /// <summary>
-    /// Controller for managing patients in the clinic management system.
+    /// Controller for managing patient operations.
+    /// Implements CQRS pattern using MediatR for clean separation of concerns.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class PatientsController : ControllerBase
     {
+        private readonly IMediator _mediator;
         private readonly ILogger<PatientsController> _logger;
 
-        public PatientsController(ILogger<PatientsController> logger)
+        public PatientsController(IMediator mediator, ILogger<PatientsController> logger)
         {
+            _mediator = mediator;
             _logger = logger;
         }
 
         /// <summary>
-        /// Get all patients
-        /// </summary>
-        /// <returns>List of patients</returns>
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<PatientDto>>> GetPatients()
-        {
-            _logger.LogInformation("Getting all patients");
-            
-            // Mock data for demonstration
-            var patients = new List<PatientDto>
-            {
-                new PatientDto
-                {
-                    Id = 1,
-                    FirstName = "John",
-                    LastName = "Doe",
-                    Email = "john.doe@email.com",
-                    PhoneNumber = "+1234567890",
-                    Address = "123 Main St, City, State",
-                    DateOfBirth = new DateTime(1990, 5, 15),
-                    PatientIdNumber = "P001",
-                    InsuranceProvider = "Health Insurance Co.",
-                    BloodType = "O+",
-                    IsActive = true,
-                    DateCreated = DateTime.UtcNow.AddDays(-30)
-                },
-                new PatientDto
-                {
-                    Id = 2,
-                    FirstName = "Jane",
-                    LastName = "Smith",
-                    Email = "jane.smith@email.com",
-                    PhoneNumber = "+1234567891",
-                    Address = "456 Oak Ave, City, State",
-                    DateOfBirth = new DateTime(1985, 8, 22),
-                    PatientIdNumber = "P002",
-                    InsuranceProvider = "Medical Care Inc.",
-                    BloodType = "A+",
-                    IsActive = true,
-                    DateCreated = DateTime.UtcNow.AddDays(-15)
-                }
-            };
-
-            return Ok(patients);
-        }
-
-        /// <summary>
-        /// Get a specific patient by ID
-        /// </summary>
-        /// <param name="id">Patient ID</param>
-        /// <returns>Patient details</returns>
-        [HttpGet("{id}")]
-        public async Task<ActionResult<PatientDto>> GetPatient(int id)
-        {
-            _logger.LogInformation("Getting patient with ID: {PatientId}", id);
-
-            if (id <= 0)
-            {
-                return BadRequest("Invalid patient ID");
-            }
-
-            // Mock data for demonstration
-            var patient = new PatientDto
-            {
-                Id = id,
-                FirstName = "John",
-                LastName = "Doe",
-                Email = "john.doe@email.com",
-                PhoneNumber = "+1234567890",
-                Address = "123 Main St, City, State",
-                DateOfBirth = new DateTime(1990, 5, 15),
-                PatientIdNumber = "P001",
-                InsuranceProvider = "Health Insurance Co.",
-                BloodType = "O+",
-                IsActive = true,
-                DateCreated = DateTime.UtcNow.AddDays(-30)
-            };
-
-            return Ok(patient);
-        }
-
-        /// <summary>
-        /// Create a new patient
+        /// Creates a new patient in the system.
         /// </summary>
         /// <param name="createPatientDto">Patient creation data</param>
-        /// <returns>Created patient</returns>
+        /// <returns>The ID of the created patient</returns>
+        /// <response code="201">Patient created successfully</response>
+        /// <response code="400">Invalid patient data provided</response>
+        /// <response code="500">Internal server error</response>
         [HttpPost]
-        public async Task<ActionResult<PatientDto>> CreatePatient([FromBody] CreatePatientDto createPatientDto)
+        [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<int>> CreatePatient([FromBody] CreatePatientDto createPatientDto)
         {
-            _logger.LogInformation("Creating new patient: {Email}", createPatientDto.Email);
+            _logger.LogInformation("Creating new patient with email: {Email}", createPatientDto.Email);
 
-            if (!ModelState.IsValid)
+            var command = new CreatePatientCommand
             {
-                return BadRequest(ModelState);
-            }
-
-            // Mock creation for demonstration
-            var patient = new PatientDto
-            {
-                Id = new Random().Next(1000, 9999),
                 FirstName = createPatientDto.FirstName,
                 LastName = createPatientDto.LastName,
                 Email = createPatientDto.Email,
                 PhoneNumber = createPatientDto.PhoneNumber,
                 Address = createPatientDto.Address,
                 DateOfBirth = createPatientDto.DateOfBirth,
+                IdentityUserId = createPatientDto.IdentityUserId,
                 PatientIdNumber = createPatientDto.PatientIdNumber,
                 InsuranceProvider = createPatientDto.InsuranceProvider,
-                InsurancePolicyNumber = createPatientDto.InsurancePolicyNumber,
-                EmergencyContactName = createPatientDto.EmergencyContactName,
-                EmergencyContactPhone = createPatientDto.EmergencyContactPhone,
-                BloodType = createPatientDto.BloodType,
-                Allergies = createPatientDto.Allergies,
-                IsActive = true,
-                DateCreated = DateTime.UtcNow
+                InsurancePolicyNumber = createPatientDto.InsurancePolicyNumber
             };
 
-            return CreatedAtAction(nameof(GetPatient), new { id = patient.Id }, patient);
+            var patientId = await _mediator.Send(command);
+
+            _logger.LogInformation("Patient created successfully with ID: {PatientId}", patientId);
+
+            return CreatedAtAction(nameof(GetPatient), new { id = patientId }, patientId);
         }
 
         /// <summary>
-        /// Update an existing patient
+        /// Retrieves a patient by their ID.
         /// </summary>
-        /// <param name="id">Patient ID</param>
+        /// <param name="id">The patient's ID</param>
+        /// <returns>Detailed patient information</returns>
+        /// <response code="200">Patient found and returned</response>
+        /// <response code="404">Patient not found</response>
+        /// <response code="500">Internal server error</response>
+        [HttpGet("{id:int}")]
+        [ProducesResponseType(typeof(PatientDetailDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PatientDetailDto>> GetPatient(int id)
+        {
+            _logger.LogInformation("Retrieving patient with ID: {PatientId}", id);
+
+            var query = new GetPatientDetailQuery(id);
+            var patient = await _mediator.Send(query);
+
+            _logger.LogInformation("Patient retrieved successfully: {PatientId}", id);
+
+            return Ok(patient);
+        }
+
+        /// <summary>
+        /// Updates an existing patient's information.
+        /// </summary>
+        /// <param name="id">The patient's ID</param>
         /// <param name="updatePatientDto">Updated patient data</param>
-        /// <returns>Updated patient</returns>
-        [HttpPut("{id}")]
-        public async Task<ActionResult<PatientDto>> UpdatePatient(int id, [FromBody] CreatePatientDto updatePatientDto)
+        /// <returns>No content if successful</returns>
+        /// <response code="204">Patient updated successfully</response>
+        /// <response code="400">Invalid patient data provided</response>
+        /// <response code="404">Patient not found</response>
+        /// <response code="500">Internal server error</response>
+        [HttpPut("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdatePatient(int id, [FromBody] UpdatePatientDto updatePatientDto)
         {
             _logger.LogInformation("Updating patient with ID: {PatientId}", id);
 
-            if (id <= 0)
+            if (id != updatePatientDto.Id)
             {
-                return BadRequest("Invalid patient ID");
+                _logger.LogWarning("Patient ID mismatch: URL ID {UrlId} vs DTO ID {DtoId}", id, updatePatientDto.Id);
+                return BadRequest("Patient ID mismatch");
             }
 
-            if (!ModelState.IsValid)
+            var command = new UpdatePatientCommand
             {
-                return BadRequest(ModelState);
-            }
-
-            // Mock update for demonstration
-            var patient = new PatientDto
-            {
-                Id = id,
+                Id = updatePatientDto.Id,
                 FirstName = updatePatientDto.FirstName,
                 LastName = updatePatientDto.LastName,
                 Email = updatePatientDto.Email,
                 PhoneNumber = updatePatientDto.PhoneNumber,
                 Address = updatePatientDto.Address,
                 DateOfBirth = updatePatientDto.DateOfBirth,
-                PatientIdNumber = updatePatientDto.PatientIdNumber,
                 InsuranceProvider = updatePatientDto.InsuranceProvider,
                 InsurancePolicyNumber = updatePatientDto.InsurancePolicyNumber,
                 EmergencyContactName = updatePatientDto.EmergencyContactName,
                 EmergencyContactPhone = updatePatientDto.EmergencyContactPhone,
                 BloodType = updatePatientDto.BloodType,
-                Allergies = updatePatientDto.Allergies,
-                IsActive = true,
-                DateCreated = DateTime.UtcNow.AddDays(-30)
+                Allergies = updatePatientDto.Allergies
             };
 
-            return Ok(patient);
+            await _mediator.Send(command);
+
+            _logger.LogInformation("Patient updated successfully: {PatientId}", id);
+
+            return NoContent();
         }
 
         /// <summary>
-        /// Delete a patient
+        /// Retrieves all patients with pagination support.
         /// </summary>
-        /// <param name="id">Patient ID</param>
-        /// <returns>No content</returns>
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeletePatient(int id)
+        /// <param name="page">Page number (default: 1)</param>
+        /// <param name="size">Page size (default: 10)</param>
+        /// <returns>Paginated list of patients</returns>
+        /// <response code="200">Patients retrieved successfully</response>
+        /// <response code="500">Internal server error</response>
+        [HttpGet]
+        [ProducesResponseType(typeof(IEnumerable<PatientDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<PatientDto>>> GetPatients(
+            [FromQuery] int page = 1, 
+            [FromQuery] int size = 10)
         {
-            _logger.LogInformation("Deleting patient with ID: {PatientId}", id);
+            _logger.LogInformation("Retrieving patients - Page: {Page}, Size: {Size}", page, size);
 
-            if (id <= 0)
-            {
-                return BadRequest("Invalid patient ID");
-            }
+            // This would be implemented with a GetPatientsQuery
+            // For now, returning a placeholder response
+            var patients = new List<PatientDto>();
 
-            // Mock deletion for demonstration
-            return NoContent();
+            _logger.LogInformation("Retrieved {Count} patients", patients.Count);
+
+            return Ok(patients);
+        }
+
+        /// <summary>
+        /// Searches for patients by name, email, or patient ID.
+        /// </summary>
+        /// <param name="searchTerm">The search term</param>
+        /// <returns>List of matching patients</returns>
+        /// <response code="200">Search completed successfully</response>
+        /// <response code="500">Internal server error</response>
+        [HttpGet("search")]
+        [ProducesResponseType(typeof(IEnumerable<PatientDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<PatientDto>>> SearchPatients([FromQuery] string searchTerm)
+        {
+            _logger.LogInformation("Searching patients with term: {SearchTerm}", searchTerm);
+
+            // This would be implemented with a SearchPatientsQuery
+            // For now, returning a placeholder response
+            var patients = new List<PatientDto>();
+
+            _logger.LogInformation("Found {Count} patients matching search term", patients.Count);
+
+            return Ok(patients);
         }
     }
 }
